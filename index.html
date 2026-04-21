@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>車牌辨識 v2</title>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<title>車牌辨識 v3</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -41,7 +40,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
 .bright-fill{height:100%;border-radius:2px;transition:width 0.3s,background 0.3s;width:0%}
 
 .progress-bar{width:100%;height:3px;background:var(--surface2)}
-.progress-fill{height:100%;background:var(--accent);transition:width 0.3s;width:0%}
+.progress-fill{height:100%;background:var(--accent);transition:width 0.5s;width:0%}
 
 .status-bar{display:flex;align-items:center;gap:8px;padding:10px 20px;font-size:13px;color:var(--text2);min-height:40px}
 .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2);flex-shrink:0}
@@ -55,9 +54,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
 .result-card.show{display:block}
 .result-plate-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px}
 .result-plate{font-size:34px;font-weight:700;letter-spacing:3px;font-family:'Courier New',monospace;color:var(--accent);margin-bottom:4px}
-.result-confidence{font-size:12px;color:var(--text2);margin-bottom:12px}
-.conf-bar{display:inline-block;width:60px;height:4px;background:var(--surface2);border-radius:2px;vertical-align:middle;margin-left:6px;overflow:hidden}
-.conf-fill{height:100%;border-radius:2px;transition:width 0.4s}
+.result-meta{font-size:12px;color:var(--text2);margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap}
+.meta-badge{background:var(--surface2);border-radius:6px;padding:3px 8px;font-size:11px}
+
+.candidates-section{margin-bottom:12px;display:none}
+.candidates-label{font-size:11px;color:var(--text2);margin-bottom:6px}
+.candidates-row{display:flex;gap:6px;flex-wrap:wrap}
+.candidate-chip{padding:4px 10px;border-radius:20px;font-size:12px;font-family:'Courier New',monospace;background:var(--surface2);border:0.5px solid var(--border);color:var(--text2);cursor:pointer;transition:all 0.15s}
+.candidate-chip.selected{background:rgba(255,214,10,0.1);border-color:var(--accent);color:var(--accent)}
 
 .note-alert{display:none;align-items:center;gap:6px;background:rgba(255,107,53,0.12);border:0.5px solid rgba(255,107,53,0.3);color:var(--accent2);font-size:13px;padding:8px 12px;border-radius:20px;margin-bottom:12px;width:100%}
 .note-display{font-size:14px;line-height:1.5;color:var(--text);background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;display:none}
@@ -77,13 +81,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
 .shutter-btn:active .shutter-inner{transform:scale(0.88)}
 .shutter-btn.scanning .shutter-inner{background:var(--accent)}
 .shutter-hint{font-size:13px;color:var(--text2);text-align:center}
-
-.debug-panel{margin:0 20px 12px;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;font-size:12px;color:var(--text2);display:none}
-.debug-panel.show{display:block}
-.debug-title{font-size:11px;font-weight:500;color:var(--text);margin-bottom:8px;letter-spacing:0.5px}
-.debug-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid var(--border)}
-.debug-row:last-child{border-bottom:none}
-.debug-val{color:var(--text);font-family:'Courier New',monospace}
+.usage-info{font-size:11px;color:var(--text2);opacity:0.6}
 
 .records-header{padding:16px 20px 12px;display:flex;align-items:center;justify-content:space-between}
 .records-count{font-size:13px;color:var(--text2)}
@@ -96,7 +94,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
 .record-note.has-note{color:var(--text)}
 .record-date{font-size:11px;color:var(--text2);margin-top:4px;opacity:0.6}
 .record-actions{display:flex;gap:6px;flex-shrink:0}
-.icon-btn{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:background 0.15s}
+.icon-btn{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px}
 .icon-btn:active{background:var(--border)}
 .empty-state{text-align:center;padding:60px 20px;color:var(--text2)}
 .empty-icon{font-size:48px;margin-bottom:12px}
@@ -105,11 +103,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
 
 .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:0.5px solid var(--border);border-radius:24px;padding:10px 20px;font-size:13px;color:var(--text);opacity:0;transition:all 0.3s;white-space:nowrap;pointer-events:none;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-.candidates-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.candidate-chip{padding:4px 10px;border-radius:20px;font-size:12px;font-family:'Courier New',monospace;background:var(--surface2);border:0.5px solid var(--border);color:var(--text2);cursor:pointer;transition:all 0.15s}
-.candidate-chip:hover{border-color:var(--accent);color:var(--accent)}
-.candidate-chip.selected{background:rgba(255,214,10,0.1);border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -117,7 +110,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
 <div class="header">
   <div>
     <div class="header-title">車牌辨識</div>
-    <div class="header-sub">台灣車牌 · 強化版 v2</div>
+    <div class="header-sub">Plate Recognizer · 台灣車牌</div>
   </div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchView('camera')">相機</button>
@@ -139,7 +132,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
       <canvas id="canvas"></canvas>
       <div class="scan-overlay">
         <div class="scan-frame"><div class="scan-line"></div></div>
-        <div class="scan-label">將車牌對準黃色框內</div>
+        <div class="scan-label">將車牌對準框內</div>
       </div>
     </div>
     <div class="brightness-bar">
@@ -158,10 +151,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
   <div id="result-card" class="result-card">
     <div class="result-plate-label">辨識結果</div>
     <div class="result-plate" id="result-plate-num">—</div>
-    <div class="result-confidence" id="result-conf"></div>
+    <div class="result-meta" id="result-meta"></div>
 
-    <div id="candidates-section" style="display:none;margin-bottom:12px">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">其他候選（點選切換）</div>
+    <div class="candidates-section" id="candidates-section">
+      <div class="candidates-label">其他候選（點選切換）</div>
       <div class="candidates-row" id="candidates-row"></div>
     </div>
 
@@ -175,16 +168,12 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
     <button class="btn btn-danger" id="delete-btn" style="display:none" onclick="deleteRecord()">刪除此車牌記錄</button>
   </div>
 
-  <div id="debug-panel" class="debug-panel">
-    <div class="debug-title">辨識詳細資訊</div>
-    <div id="debug-content"></div>
-  </div>
-
   <div class="cam-controls" id="cam-ctrl" style="display:none">
     <button class="shutter-btn" id="shutter" onclick="capture()">
       <div class="shutter-inner"></div>
     </button>
     <div class="shutter-hint">按下快門辨識車牌</div>
+    <div class="usage-info" id="usage-info">本月已用 0 / 2500 次</div>
   </div>
 
 </div>
@@ -200,15 +189,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Di
 <div class="toast" id="toast"></div>
 
 <script>
-const DB_KEY = 'tw_plate_notes_v2';
+const API_TOKEN = 'ae6af9045e374a0c3daf4f71d839e37ad87d13a3';
+const API_URL = 'https://api.platerecognizer.com/v1/plate-reader/';
+const DB_KEY = 'tw_plate_notes_v3';
+
 let db = {};
 try { db = JSON.parse(localStorage.getItem(DB_KEY) || '{}'); } catch(e) {}
 let currentPlate = null;
 let stream = null;
-let worker = null;
-let workerReady = false;
 let brightInterval = null;
-let allCandidates = [];
 
 function saveDB(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(db)); }catch(e){} }
 
@@ -234,29 +223,6 @@ function setStatus(text, type=''){
   dot.className = 'status-dot'+(type?' '+type:'');
 }
 
-async function initWorker(){
-  if(worker) return;
-  setStatus('正在載入 OCR 引擎...','scanning');
-  try{
-    worker = await Tesseract.createWorker('eng', 1, {
-      logger: m => {
-        if(m.status==='recognizing text'){
-          document.getElementById('progress').style.width = (m.progress*100).toFixed(0)+'%';
-        }
-      }
-    });
-    await worker.setParameters({
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-      preserve_interword_spaces: '0',
-      tessedit_pageseg_mode: '7',
-    });
-    workerReady = true;
-    setStatus('就緒，按快門辨識車牌','success');
-  }catch(e){
-    setStatus('OCR 引擎載入失敗','error');
-  }
-}
-
 async function startCamera(){
   document.getElementById('cam-placeholder').style.display='none';
   document.getElementById('cam-live').style.display='block';
@@ -266,140 +232,49 @@ async function startCamera(){
       video:{ facingMode:'environment', width:{ideal:1920}, height:{ideal:1080} }
     });
     document.getElementById('video').srcObject = stream;
-    setStatus('相機已啟動','success');
+    setStatus('就緒，按快門辨識車牌','success');
     startBrightnessMonitor();
+    fetchUsage();
   }catch(e){
     setStatus('無法取得相機權限','error');
   }
-  initWorker();
 }
 
 function startBrightnessMonitor(){
   const video = document.getElementById('video');
-  const tmpCanvas = document.createElement('canvas');
-  const tmpCtx = tmpCanvas.getContext('2d');
+  const tmp = document.createElement('canvas');
+  const ctx = tmp.getContext('2d');
   brightInterval = setInterval(()=>{
     if(video.videoWidth===0) return;
-    tmpCanvas.width=80; tmpCanvas.height=45;
-    tmpCtx.drawImage(video,0,0,80,45);
-    const d = tmpCtx.getImageData(0,0,80,45).data;
+    tmp.width=80; tmp.height=45;
+    ctx.drawImage(video,0,0,80,45);
+    const d = ctx.getImageData(0,0,80,45).data;
     let sum=0;
     for(let i=0;i<d.length;i+=4) sum+=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
     const avg = Math.round(sum/(d.length/4));
     const pct = Math.round(avg/255*100);
     document.getElementById('bright-fill').style.width = pct+'%';
     document.getElementById('bright-fill').style.background =
-      avg<60 ? '#FF453A' : avg<100 ? '#FF9F0A' : '#30D158';
+      avg<60?'#FF453A':avg<100?'#FF9F0A':'#30D158';
     document.getElementById('bright-val').textContent = avg<60?'太暗':avg<100?'偏暗':'良好';
   },500);
 }
 
-function preprocessImage(sourceCanvas, mode){
-  const w = sourceCanvas.width, h = sourceCanvas.height;
-  const out = document.createElement('canvas');
-  const scale = 3;
-  out.width = w*scale; out.height = h*scale;
-  const ctx = out.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
-
-  const imgData = ctx.getImageData(0,0,out.width,out.height);
-  const data = imgData.data;
-
-  if(mode==='binary'){
-    for(let i=0;i<data.length;i+=4){
-      const gray = 0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
-      const v = gray>127?255:0;
-      data[i]=data[i+1]=data[i+2]=v;
+async function fetchUsage(){
+  try{
+    const r = await fetch('https://api.platerecognizer.com/v1/statistics/', {
+      headers:{'Authorization':'Token '+API_TOKEN}
+    });
+    const d = await r.json();
+    if(d.usage){
+      document.getElementById('usage-info').textContent =
+        `本月已用 ${d.usage.calls} / ${d.usage.total_calls || 2500} 次`;
     }
-  } else if(mode==='invert'){
-    for(let i=0;i<data.length;i+=4){
-      const gray = 0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
-      const v = gray>127?0:255;
-      data[i]=data[i+1]=data[i+2]=v;
-    }
-  } else if(mode==='contrast'){
-    for(let i=0;i<data.length;i+=4){
-      const gray = 0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
-      const c = Math.min(255, Math.max(0, (gray-128)*2.5+128));
-      data[i]=data[i+1]=data[i+2]=c;
-    }
-  }
-  ctx.putImageData(imgData,0,0);
-  return out;
-}
-
-function cropToPlateArea(sourceCanvas){
-  const w=sourceCanvas.width, h=sourceCanvas.height;
-  const cropX=w*0.08, cropY=h*0.28, cropW=w*0.84, cropH=h*0.44;
-  const out=document.createElement('canvas');
-  out.width=cropW; out.height=cropH;
-  out.getContext('2d').drawImage(sourceCanvas,cropX,cropY,cropW,cropH,0,0,cropW,cropH);
-  return out;
-}
-
-const TW_PATTERNS = [
-  /^[A-Z]{3}[0-9]{4}$/,
-  /^[A-Z]{2}[0-9]{4}$/,
-  /^[A-Z]{2}[0-9]{3}$/,
-  /^[0-9]{4}[A-Z]{2}$/,
-  /^[0-9]{3}[A-Z]{2}$/,
-  /^[A-Z][0-9]{4}[A-Z]$/,
-  /^[A-Z][0-9]{3}[A-Z]{2}$/,
-  /^[A-Z]{2}[0-9]{2}[A-Z]{2}$/,
-];
-
-function formatPlate(raw){
-  if(raw.length>=5 && raw.length<=7){
-    const letters = raw.match(/[A-Z]+/g)||[];
-    const digits = raw.match(/[0-9]+/g)||[];
-    if(letters.length>0 && digits.length>0){
-      return letters[0]+'-'+digits[0];
-    }
-  }
-  return raw;
-}
-
-function extractCandidates(text){
-  const cleaned = text.toUpperCase().replace(/[^A-Z0-9\n ]/g,'');
-  const tokens = cleaned.split(/[\n\s]+/).filter(t=>t.length>=4&&t.length<=8);
-  const scored = [];
-  for(const tok of tokens){
-    for(const pat of TW_PATTERNS){
-      if(pat.test(tok)){
-        scored.push({raw:tok, formatted:formatPlate(tok), score:10});
-        break;
-      }
-    }
-    if(tok.length>=5&&tok.length<=7){
-      const lc=((tok.match(/[A-Z]/g)||[]).length);
-      const dc=((tok.match(/[0-9]/g)||[]).length);
-      if(lc>=1&&dc>=2){
-        const already = scored.find(s=>s.raw===tok);
-        if(!already) scored.push({raw:tok,formatted:formatPlate(tok),score:lc+dc});
-      }
-    }
-  }
-  scored.sort((a,b)=>b.score-a.score);
-  const seen=new Set();
-  return scored.filter(s=>{
-    if(seen.has(s.formatted)) return false;
-    seen.add(s.formatted);
-    return true;
-  }).slice(0,4);
-}
-
-async function recognizeWithMode(cropCanvas, mode){
-  const processed = preprocessImage(cropCanvas, mode);
-  const {data} = await worker.recognize(processed);
-  const candidates = extractCandidates(data.text);
-  return {candidates, confidence:data.confidence, raw:data.text, mode};
+  }catch(e){}
 }
 
 async function capture(){
   if(!stream){ showToast('請先啟用相機'); return; }
-  if(!workerReady){ showToast('OCR 引擎尚未就緒，請稍候'); return; }
 
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
@@ -407,84 +282,103 @@ async function capture(){
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video,0,0);
 
-  const cropCanvas = cropToPlateArea(canvas);
-
   const shutter = document.getElementById('shutter');
   shutter.classList.add('scanning');
-  setStatus('辨識中（多模式）...','scanning');
-  document.getElementById('progress').style.width='0%';
+  setStatus('上傳辨識中...','scanning');
   clearResult();
 
-  try{
-    const modes = ['contrast','binary','invert'];
-    const results = await Promise.all(modes.map(m=>recognizeWithMode(cropCanvas,m)));
+  let progress = 0;
+  const progressEl = document.getElementById('progress');
+  const progressTimer = setInterval(()=>{
+    progress = Math.min(progress+8, 85);
+    progressEl.style.width = progress+'%';
+  }, 150);
 
-    document.getElementById('progress').style.width='100%';
-    setTimeout(()=>document.getElementById('progress').style.width='0%',800);
+  try{
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+    const formData = new FormData();
+    formData.append('upload', blob, 'plate.jpg');
+    formData.append('regions', 'tw');
+    formData.append('config', JSON.stringify({mode:'fast'}));
+
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Authorization': 'Token ' + API_TOKEN },
+      body: formData
+    });
+
+    clearInterval(progressTimer);
+    progressEl.style.width = '100%';
+    setTimeout(()=>progressEl.style.width='0%', 800);
     shutter.classList.remove('scanning');
 
-    const allCands = [];
-    const seen = new Set();
-    for(const r of results){
-      for(const c of r.candidates){
-        if(!seen.has(c.formatted)){
-          seen.add(c.formatted);
-          allCands.push({...c, confidence:r.confidence});
-        }
-      }
-    }
-
-    const debugRows = results.map(r=>
-      `<div class="debug-row"><span>${r.mode}</span><span class="debug-val">${r.candidates.map(c=>c.formatted).join(', ')||'未辨識'}</span></div>`
-    ).join('');
-    document.getElementById('debug-content').innerHTML = debugRows;
-    document.getElementById('debug-panel').classList.add('show');
-
-    if(allCands.length===0){
-      setStatus('未辨識到車牌格式，請調整角度重試','error');
+    if(!response.ok){
+      const err = await response.json().catch(()=>({}));
+      setStatus(`API 錯誤：${response.status}`, 'error');
       return;
     }
 
-    allCandidates = allCands;
-    selectCandidate(allCands[0], allCands);
+    const data = await response.json();
+    fetchUsage();
+
+    if(!data.results || data.results.length===0){
+      setStatus('未偵測到車牌，請調整角度或距離重試','error');
+      return;
+    }
+
+    const results = data.results;
+    const best = results[0];
+    const bestPlate = best.plate.toUpperCase();
+
+    showResult(bestPlate, best, results);
 
   }catch(e){
+    clearInterval(progressTimer);
     shutter.classList.remove('scanning');
-    setStatus('辨識失敗，請重試','error');
+    progressEl.style.width='0%';
+    if(e.message && e.message.includes('fetch')){
+      setStatus('網路錯誤，請確認網路連線','error');
+    } else {
+      setStatus('辨識失敗，請重試','error');
+    }
   }
 }
 
-function selectCandidate(cand, all){
-  currentPlate = cand.formatted;
-  document.getElementById('result-plate-num').textContent = cand.formatted;
+function showResult(plate, best, allResults){
+  currentPlate = plate;
+  document.getElementById('result-plate-num').textContent = plate;
 
-  const confPct = Math.round(cand.confidence||0);
-  const confColor = confPct>=70?'#30D158':confPct>=40?'#FF9F0A':'#FF453A';
-  document.getElementById('result-conf').innerHTML =
-    `信心度 <span class="conf-bar"><span class="conf-fill" style="width:${confPct}%;background:${confColor}"></span></span> ${confPct}%`;
+  const conf = Math.round((best.score||0)*100);
+  const confColor = conf>=80?'#30D158':conf>=50?'#FF9F0A':'#FF453A';
+  const metaEl = document.getElementById('result-meta');
+  let metaHtml = `<span class="meta-badge" style="color:${confColor}">信心度 ${conf}%</span>`;
+  if(best.region && best.region.code) metaHtml += `<span class="meta-badge">地區 ${best.region.code.toUpperCase()}</span>`;
+  if(best.vehicle && best.vehicle.type) metaHtml += `<span class="meta-badge">${best.vehicle.type}</span>`;
+  metaEl.innerHTML = metaHtml;
 
-  if(all && all.length>1){
+  if(allResults.length>1){
     const row = document.getElementById('candidates-row');
-    row.innerHTML = all.map((c,i)=>
-      `<span class="candidate-chip${i===0?' selected':''}" onclick="pickCandidate('${c.formatted}',this)">${c.formatted}</span>`
-    ).join('');
+    row.innerHTML = allResults.map((r,i)=>{
+      const p = r.plate.toUpperCase();
+      return `<span class="candidate-chip${i===0?' selected':''}" onclick="pickCandidate('${p}',this)">${p}</span>`;
+    }).join('');
     document.getElementById('candidates-section').style.display='block';
   } else {
     document.getElementById('candidates-section').style.display='none';
   }
 
-  populateNoteArea(cand.formatted);
+  populateNoteArea(plate);
   document.getElementById('result-card').classList.add('show');
 
-  if(db[cand.formatted]){
-    setStatus(`辨識完成：${cand.formatted}（有備註）`,'success');
+  if(db[plate]&&db[plate].note){
+    setStatus(`辨識完成：${plate}（有備註）`,'success');
   } else {
-    setStatus(`辨識完成：${cand.formatted}`,'success');
+    setStatus(`辨識完成：${plate}`,'success');
   }
 
-  if(!db[cand.formatted]) db[cand.formatted]={note:'',sightings:0,first:Date.now(),last:Date.now()};
-  db[cand.formatted].sightings=(db[cand.formatted].sightings||0)+1;
-  db[cand.formatted].last=Date.now();
+  if(!db[plate]) db[plate]={note:'',sightings:0,first:Date.now(),last:Date.now()};
+  db[plate].sightings=(db[plate].sightings||0)+1;
+  db[plate].last=Date.now();
   saveDB();
 }
 
@@ -516,7 +410,7 @@ function populateNoteArea(plate){
     noteDisplay.style.display='none';
     noteInput.value='';
     saveBtn.textContent='儲存備註';
-    deleteBtn.style.display='block';
+    deleteBtn.style.display='none';
   }
 }
 
@@ -542,9 +436,7 @@ function deleteRecord(){
 
 function clearResult(){
   document.getElementById('result-card').classList.remove('show');
-  document.getElementById('debug-panel').classList.remove('show');
   currentPlate=null;
-  allCandidates=[];
 }
 
 function renderRecords(){
@@ -569,8 +461,8 @@ function renderRecords(){
         <div class="record-note ${note?'has-note':''}">${note||'（無備註）'}</div>
       </div>
       <div class="record-actions">
-        <button class="icon-btn" onclick="editFromRecord('${plate}')" title="編輯">✏️</button>
-        <button class="icon-btn" onclick="deleteFromList('${plate}')" title="刪除">🗑️</button>
+        <button class="icon-btn" onclick="editFromRecord('${plate}')">✏️</button>
+        <button class="icon-btn" onclick="deleteFromList('${plate}')">🗑️</button>
       </div>
     </div>`;
   }).join('');
@@ -581,7 +473,7 @@ function editFromRecord(plate){
   setTimeout(()=>{
     currentPlate=plate;
     document.getElementById('result-plate-num').textContent=plate;
-    document.getElementById('result-conf').textContent='';
+    document.getElementById('result-meta').innerHTML='';
     document.getElementById('candidates-section').style.display='none';
     populateNoteArea(plate);
     document.getElementById('result-card').classList.add('show');
